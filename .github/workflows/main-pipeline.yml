@@ -1,5 +1,11 @@
 name: Main CI CD Pipeline
 
+permissions:
+  contents: read
+  packages: write
+
+# checkov:skip=CKV_GHA_7: Manual deployment input is required by design
+
 on:
   push:
     branches:
@@ -125,4 +131,3 @@ jobs:
         if: github.event.inputs.deploy_target == 'ec2'
         run: |
           echo "Deploying to EC2..."
-
