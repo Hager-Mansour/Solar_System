@@ -18,7 +18,6 @@ jobs:
             exit 1
           fi
 
-
   security-scan:
     runs-on: ubuntu-latest
     needs: dockerfile-check
