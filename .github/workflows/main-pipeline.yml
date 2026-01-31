@@ -11,6 +11,7 @@ on:
   push:
     branches:
       - main
+      - hager/task1   # علشان يرن مع كل تعديل أثناء التطوير
 
   workflow_dispatch:
     inputs:
@@ -72,7 +73,7 @@ jobs:
           image-ref: solar-system-app:${{ github.sha }}
           format: sarif
           output: trivy-report.sarif
-          exit-code: '0'
+          exit-code: '0'     # DEV MODE علشان ما يوقفش البايبلاين أثناء التطوير
           severity: 'CRITICAL,HIGH'
 
       - name: Upload Trivy Report
@@ -88,6 +89,10 @@ jobs:
   push-image:
     runs-on: ubuntu-latest
     needs: trivy-scan
+
+    # ⭐⭐ أهم تعديل هنا ⭐⭐
+    # خلي Push يحصل فقط لو الفرع main
+    if: github.ref == 'refs/heads/main'
 
     steps:
       - name: Download Image Artifact
@@ -132,4 +137,3 @@ jobs:
         if: github.event.inputs.deploy_target == 'ec2'
         run: |
           echo "Deploying to EC2..."
-
