@@ -125,3 +125,4 @@ jobs:
         if: github.event.inputs.deploy_target == 'ec2'
         run: |
           echo "Deploying to EC2..."
+
