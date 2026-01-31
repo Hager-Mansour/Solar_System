@@ -5,8 +5,6 @@ permissions:
   packages: write
   security-events: write
 
-# checkov:skip=CKV_GHA_7: Manual deployment input is required by design
-
 on:
   push:
     branches:
@@ -89,13 +87,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: trivy-scan
 
-    # Push only from main branch
+    # ✅ Push only on main
     if: github.ref == 'refs/heads/main'
 
     steps:
-      - name: Checkout Source Code
-        uses: actions/checkout@v4
-
       - name: Download Docker Image Artifact
         uses: actions/download-artifact@v4
         with:
@@ -104,20 +99,18 @@ jobs:
       - name: Load Docker Image
         run: docker load < image.tar
 
-      # ✅ OFFICIAL DOCKER LOGIN
       - name: Login To DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # ✅ OFFICIAL PUSH ACTION (NO TAG ERRORS)
-      - name: Push Image To DockerHub
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/solar-system-app:latest
+      - name: Tag & Push Image
+        run: |
+          docker tag solar-system-app:${{ github.sha }} \
+          ${{ secrets.DOCKER_USERNAME }}/solar-system-app:latest
+
+          docker push ${{ secrets.DOCKER_USERNAME }}/solar-system-app:latest
 
 
 # =========================
