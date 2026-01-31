@@ -22,8 +22,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check Dockerfile Exists
-        run: |
-          ls Dockerfile
+        run: ls Dockerfile
+
 
   security-scan:
     runs-on: ubuntu-latest
@@ -34,14 +34,12 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Checkov
-        run: |
-          pip install checkov
+        run: pip install checkov
 
       - name: Run Checkov Scan
         run: |
           checkov -d . \
-          --framework dockerfile,github_actions \
-          --soft-fail false
+          --framework dockerfile,github_actions
 
       - name: Generate SARIF Report
         run: |
