@@ -2,17 +2,24 @@ FROM node:18-alpine3.17
 
 WORKDIR /usr/app
 
-# 1. نسخ ملفات تعريف المشروع (للـ Backend والـ Frontend إذا كان هناك build)
+# Create non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
 COPY package*.json ./
 
-# 2. تثبيت المكتبات اللازمة لتشغيل السيرفر
 RUN npm install --only=production
 
-# 3. نسخ كل ملفات المشروع (يشمل كود app.js وملفات index.html والصور)
 COPY . .
+
+ENV NODE_ENV=production
 
 EXPOSE 3000
 
-ENV NODE_ENV=production
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1
+
+# Switch to non-root user
+USER appuser
 
 CMD ["npm", "start"]
