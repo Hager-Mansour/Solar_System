@@ -3,6 +3,7 @@ name: Main CI CD Pipeline
 permissions:
   contents: read
   packages: write
+  security-events: write
 
 # checkov:skip=CKV_GHA_7: Manual deployment input is required by design
 
@@ -69,8 +70,8 @@ jobs:
         uses: aquasecurity/trivy-action@0.24.0
         with:
           image-ref: solar-system-app:${{ github.sha }}
-          format: html
-          output: trivy-report.html
+          format: sarif
+          output: trivy-report.sarif
           exit-code: '1'
           severity: 'CRITICAL,HIGH'
 
@@ -78,7 +79,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: trivy-security-report
-          path: trivy-report.html
+          path: trivy-report.sarif
 
 
   # ======================
@@ -112,7 +113,7 @@ jobs:
 
 
   # ======================
-  # CD JOB
+  # JOB 4 - CD (MANUAL)
   # ======================
   cd:
     runs-on: ubuntu-latest
