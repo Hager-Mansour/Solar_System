@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  app:
+    container_name: solar-system-app
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/solar-system?authSource=admin
+      - MONGO_USERNAME=root
+      - MONGO_PASSWORD=example
+    depends_on:
+      - mongo
+
+  mongo:
+    container_name: solar-system-mongo
+    image: mongo:5.0
+    ports:
+      - "27017:27017"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=example
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  mongo_data:
