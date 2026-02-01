@@ -3,7 +3,6 @@ name: Main CI CD Pipeline
 permissions:
   contents: read
   packages: write
-  security-events: write
 
 on:
   push:
@@ -21,18 +20,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Build Docker Image
-        run: |
-          docker build -t solar-system-app:latest .
+        run: docker build -t solar-system-app:latest .
 
-      - name: Save Docker Image
-        run: |
-          docker save solar-system-app:latest > image.tar
+      - name: Save Image
+        run: docker save solar-system-app:latest > image.tar
 
-      - name: Upload Docker Image Artifact
+      - name: Upload Image Artifact
         uses: actions/upload-artifact@v4
         with:
           name: docker-image
@@ -47,25 +43,27 @@ jobs:
     needs: build
 
     steps:
-      - name: Download Docker Image
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: docker-image
 
-      - name: Load Docker Image
+      - name: Load Image
         run: docker load < image.tar
 
-      # ✅ OFFICIAL TRIVY ACTION (بدون wget مشاكل)
-      - name: Run Trivy Scan
-        uses: aquasecurity/trivy-action@0.24.0
-        with:
-          image-ref: solar-system-app:latest
-          format: table
-          output: trivy-report.txt
-          severity: CRITICAL,HIGH
-          exit-code: '0'
+      - name: Install Trivy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget
+          wget https://github.com/aquasecurity/trivy/releases/latest/download/trivy_0.50.1_Linux-64bit.deb
+          sudo dpkg -i trivy_0.50.1_Linux-64bit.deb
 
-      - name: Upload Trivy Report Artifact
+      - name: Run Trivy Scan
+        run: |
+          trivy image solar-system-app:latest \
+          --format table \
+          --output trivy-report.txt
+
+      - name: Upload Trivy Report
         uses: actions/upload-artifact@v4
         with:
           name: trivy-report
@@ -80,22 +78,19 @@ jobs:
     needs: trivy-scan
 
     steps:
-      - name: Download Docker Image
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: docker-image
 
-      - name: Load Docker Image
+      - name: Load Image
         run: docker load < image.tar
 
-      # ✅ DockerHub Login Action (أأمن)
-      - name: Login To DockerHub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: DockerHub Login
+        run: |
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login \
+          -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      - name: Tag & Push Image
+      - name: Push Image
         run: |
           docker tag solar-system-app:latest ${{ secrets.DOCKER_USERNAME }}/solar-system-app:latest
           docker push ${{ secrets.DOCKER_USERNAME }}/solar-system-app:latest
@@ -109,35 +104,27 @@ jobs:
     needs: push-image
 
     steps:
+
       - name: Setup SSH Key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2.pem
+          chmod 600 ~/.ssh/ec2.pem
 
-      - name: Add EC2 Host
+      - name: Deploy On EC2
         run: |
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          ssh -o StrictHostKeyChecking=no \
+          -i ~/.ssh/ec2.pem \
+          ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
 
-      - name: Deploy To EC2
-        run: |
-          ssh ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << EOF
+          sudo docker pull ${{ secrets.DOCKER_USERNAME }}/solar-system-app:latest
 
-          sudo yum update -y
-          sudo yum install docker -y
-          sudo systemctl start docker
-          sudo systemctl enable docker
+          sudo docker stop solar-system || true
+          sudo docker rm solar-system || true
 
-          docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-
-          docker stop solar-app || true
-          docker rm solar-app || true
-
-          docker pull ${{ secrets.DOCKER_USERNAME }}/solar-system-app:latest
-
-          docker run -d \
-            --name solar-app \
-            -p 80:3000 \
-            ${{ secrets.DOCKER_USERNAME }}/solar-system-app:latest
+          sudo docker run -d \
+          --name solar-system \
+          -p 80:3000 \
+          ${{ secrets.DOCKER_USERNAME }}/solar-system-app:latest
 
           EOF
